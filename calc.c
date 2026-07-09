@@ -161,8 +161,6 @@ Matrix *matrix_multiplication(const Matrix *matrix1, const Matrix *matrix2) {
 	}
 }
 
-
-
 Matrix *gaussian_elimination_matrix(const Matrix *matrix){
 	/*
 	 *La idea de esta funcion es la siguiente. 
@@ -240,8 +238,8 @@ double determinant_matrix(const Matrix *matrix) {
 	}
 	free_matrix(triangular);
 	return result;
-
 }
+
 Matrix *concatenate_matrix(const Matrix *matrix1, const Matrix *matrix2){
 	if (matrix1->row - matrix2->row) {
 		printf("ERROR CONCATENATE: No coinciden las filas\n");
@@ -258,11 +256,9 @@ Matrix *concatenate_matrix(const Matrix *matrix1, const Matrix *matrix2){
 				for (int j = (matrix1->col) *2; j < matrix1->col + matrix2->col; j++) result->data[i][j] = matrix2->data[i][j - matrix1->col]; 
 			}
 	}
-			
 	return result;
-	
-       	
 }
+
 //recibe punteros a la funciones 
 //recibe las dos matrices donde va a guardar las matrices separadas, y la cantidad de columnas de la primera.
 void mitosis_matrix(const Matrix *matrix, Matrix **result1, Matrix **result2, int col1)
@@ -339,9 +335,6 @@ Matrix *gauss_jordan_elimination_matrix(const Matrix *matrix){
 		}
 	}
 	return result;
-	
-	
-	
 }
 
 Matrix *inverse_matrix(const Matrix *matrix){
@@ -480,6 +473,47 @@ int range_matrix(const Matrix *matrix){
 	return range;
 }
 
+double trace_matrix(const Matrix *matrix){
+  double trace = 0;
+    for (int i = 0; i < matrix->row; i++){
+      trace = trace + matrix->data[i][i];
+    }
+  return trace;
+}
+
+double *faddeev_leverrier_matrix(const Matrix *matrix){
+  Matrix *M = identity_matrix(matrix->col);
+  Matrix *aux;
+  double *coeficientes = calloc((matrix->col) + 1, sizeof(double));
+  int i;
+  for (i = 0; i < matrix->col; i++){
+    aux = matrix_multiplication(matrix, M);
+    coeficientes[i] = -(trace_matrix(aux) / (i + 1));
+    free_matrix(M);
+    M = aux;
+
+    for (int j = 0; j < matrix->col; j++){
+      M->data[j][j] = M->data[j][j] + coeficientes[i];
+    }
+  }
+  free_matrix(M);
+  coeficientes[i] = 1; 
+  return coeficientes;
+}
+
+double *eigenvalues_matrix(const Matrix *matrix){
+  double *pol_caracteristico = faddeev_leverrier_matrix(matrix);
+  double *eigenvalues = calloc((matrix->col) + 1, sizeof(double));
+  // hay que armar un metodo que dados los coeficientes del polinomio devuelva las raices del mismo respetando si se repiten o no (o sea que no las omita si son iguales)
+  return eigenvalues;
+}
+
+// double *bhaskara(double *coeficientes){
+// }
+//
+// double *cardano(double *coeficientes){
+//
+// }
 
 //Funciones de vectores
 Vector *init_vector(int dim){
@@ -597,7 +631,7 @@ Vector *cross_product_3_dim_vector(const Vector *vector1, const Vector *vector2)
 	data[1] = vector1->data[2]*vector2->data[0] - vector1->data[0]*vector2->data[2];
 	data[2] = vector1->data[0]*vector2->data[1] - vector1->data[1]*vector2->data[2];
 
-	for(int i = 0; i ++; i < 3){
+	for(int i = 0; i < 3; i++){
 		if(data[i] == (-0)) data[i] = 0; //evitar el -0
 	}
 	return populate_vector(3, data);
