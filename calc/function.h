@@ -40,7 +40,8 @@ Matrix *cofactor_matrix(Matrix *matrix);
 Matrix *adjoint_matrix(Matrix *matrix);
 Matrix *fast_inverse_matrix(Matrix *inverse);
 int range_matrix(const Matrix *matrix);
-
+double trace_matrix(const Matrix *matrix);
+double *faddeev_leverrier_matrix(const Matrix *matrix);
 
 //funciones de solo vectores
 Vector *init_vector(int dim);
