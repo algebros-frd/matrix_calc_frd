@@ -35,6 +35,5 @@ int reader(int max_len, char *source){
 
 Node* tokenizer(char *fuente, Afd* afds[]){//devuelve un linked list de tokens
 	int c_afds = sizeof(afds) / sizeof(Afd*);
-	:
 }
 

@@ -1,5 +1,6 @@
 #include "afd.h"
 #include "lexer.h"
+#include "index_list.h"
 
 #include <stdio.h>
 #include <string.h>
