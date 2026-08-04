@@ -42,6 +42,7 @@ Matrix *fast_inverse_matrix(Matrix *inverse);
 int range_matrix(const Matrix *matrix);
 double trace_matrix(const Matrix *matrix);
 double *faddeev_leverrier_matrix(const Matrix *matrix);
+double *eigenvalues_matrix(const Matrix *matrix);
 
 //funciones de solo vectores
 Vector *init_vector(int dim);
@@ -55,3 +56,7 @@ Vector *cross_product_3_dim_vector(const Vector *vector1, const Vector *vector2)
 
 //funciones de matrices y vectores
 Vector *matrix_vector_multiplication(const Matrix *matrix, const Vector *vector);
+
+// funciones auxiliares
+double sqrt_newton_raphson(double num);
+double modulo(double val);
