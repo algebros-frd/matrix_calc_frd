@@ -60,3 +60,6 @@ Vector *matrix_vector_multiplication(const Matrix *matrix, const Vector *vector)
 // funciones auxiliares
 double sqrt_newton_raphson(double num);
 double modulo(double val);
+double *ruffini(double coef[4], double resultado[4]);
+int root_search_for_ruffini(double coef[4], double *raiz);
+double eval_equation(double coef[4], double x);

@@ -536,13 +536,25 @@ double *eigenvalues_matrix(const Matrix *matrix) {
     eigenvalues[1] = (-pol_caracteristico[0] - sqrt_newton_raphson(disc))/2;
   } 
   else if (matrix->col == 3){
-    // completar
-  } else {
+    double nuevo_polinomio[4];
+    double *pol_ruffini = ruffini(pol_caracteristico, nuevo_polinomio);
+    if (pol_ruffini == NULL){
+      printf("Fallo ruffini wachin\n");
+      free(eigenvalues);
+      return NULL;
+    } 
+    eigenvalues[0] = pol_ruffini[3];
+    double disc = (pol_ruffini[0] * pol_ruffini[0]) - 4 * pol_ruffini[1];
+    eigenvalues[1] = (-pol_ruffini[0] + sqrt_newton_raphson(disc))/2;
+    eigenvalues[2] = (-pol_ruffini[0] - sqrt_newton_raphson(disc))/2;
+  } 
+  else {
     printf("Aun no calculamos eigenvalores de matrices mayores a 3x3\n");
     return NULL;
   }
   return eigenvalues;
 }
+
 
 // Funciones de vectores
 Vector *init_vector(int dim) {
@@ -736,4 +748,60 @@ double sqrt_newton_raphson(double num) {
   } while (modulo(guess - prev_guess) >= epsilon);
 
   return guess;
+}
+
+double eval_equation(double coef[4], double x) {
+    return ((coef[3] * x + coef[0]) * x + coef[1]) * x + coef[2];
+}
+
+// Prueba y error como un wachin
+int root_search_for_ruffini(double coef[4], double *raiz) {
+    double epsilon = 0.000001;
+    int termino_independiente = (int)coef[2];
+    if (termino_independiente == 0) {
+        *raiz = 0;
+        return 1;
+    }
+    int limite = (int)modulo((double)termino_independiente);
+    for (int d = 1; d <= limite; d++) {
+        if (limite % d == 0) {
+            int candidatos[2] = { d, -d };
+            for (int k = 0; k < 2; k++) {
+                double val = eval_equation(coef, (double)candidatos[k]);
+                if (modulo(val) < epsilon) {
+                    *raiz = (double)candidatos[k];
+                    return 1;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+double *ruffini(double coef[4], double resultado[4]) {
+    double epsilon = 0.000001;
+    double raiz;
+    if (!root_search_for_ruffini(coef, &raiz)) {
+        printf("No encontré una raiz entera para hacer ruffini\n");
+        return NULL;
+    }
+    double b0 = coef[3];
+    double b1 = coef[0] + raiz * b0;
+    double b2 = coef[1] + raiz * b1;
+    double resto = coef[2] + raiz * b2;
+
+    if (modulo(resto) >= epsilon) {
+        printf("Fallo ruffini (resto = %.6f != 0)\n", resto);
+        return NULL;
+    }
+    
+    // guarda en resultado los coef del nuevo polinomio y en el ultimo elemento la raiz usada para bajarle el grado
+    // esa raiz representa un autovalor asi que no la podemos descartar
+    // el array resultado queda para un pol x³ + px² + q --> resultado = {p,q,1,raiz encontrada}
+    resultado[0] = b1;
+    resultado[1] = b2;
+    resultado[2] = b0;
+    resultado[3] = raiz;
+
+    return resultado;
 }
