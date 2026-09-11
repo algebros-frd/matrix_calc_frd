@@ -15,10 +15,25 @@ typedef struct Vector {
 	double *data;
 }Vector; 
 
+#define EPS 1e-9 // Para comparar floats
+
+typedef enum {
+  SIN_SOLUCION,
+  SOLUCION_UNICA,
+  INFINITAS_SOLUCIONES
+} TipoSolucion;
+
+typedef struct Solution {
+  TipoSolucion tipo;
+  Vector *particular;  // NULL si no hay solucion
+  Matrix *generadores; // NULL si la solucion es unica
+  int libres;          // cantidad de parametros
+} Solution;
+
 //Funciones de solo matrices
 Matrix *copy_matrix(const Matrix *matrix1);
 void set_elem_matrix(int row, int col, double value, Matrix *matrix);
-Matrix *init_matrix_matrix(int row, int col);
+Matrix *init_matrix(int row, int col);
 void print_matrix(const Matrix *matrix);
 Matrix *populate_matrix(int row, int col,const double *data);
 void free_matrix(Matrix *matrix);
@@ -52,10 +67,14 @@ Vector *vector_addition(const Vector *vector1, const Vector *vector2);
 double scalar_product_vector(const Vector *vector1, const Vector *vector2);
 Vector *populate_vector(int dim, const double *data);
 Vector *cross_product_3_dim_vector(const Vector *vector1, const Vector *vector2);
+void free_vector(Vector *vector);
 
 
 //funciones de matrices y vectores
 Vector *matrix_vector_multiplication(const Matrix *matrix, const Vector *vector);
+Solution *solve_equation_system(const Matrix *matrix, const Vector *vector);
+void print_solution(const Solution *solution);
+void free_solution(Solution *solution);
 
 // funciones auxiliares
 double sqrt_newton_raphson(double num);

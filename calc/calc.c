@@ -530,31 +530,29 @@ double *faddeev_leverrier_matrix(const Matrix *matrix) {
 double *eigenvalues_matrix(const Matrix *matrix) {
   double *pol_caracteristico = faddeev_leverrier_matrix(matrix);
   double *eigenvalues = calloc((matrix->col) + 1, sizeof(double));
-  if (matrix->col == 2){
-    double disc = (pol_caracteristico[0] * pol_caracteristico[0]) - 4 * pol_caracteristico[1];
-    eigenvalues[0] = (-pol_caracteristico[0] + sqrt_newton_raphson(disc))/2;
-    eigenvalues[1] = (-pol_caracteristico[0] - sqrt_newton_raphson(disc))/2;
-  } 
-  else if (matrix->col == 3){
+  if (matrix->col == 2) {
+    double disc = (pol_caracteristico[0] * pol_caracteristico[0]) -
+                  4 * pol_caracteristico[1];
+    eigenvalues[0] = (-pol_caracteristico[0] + sqrt_newton_raphson(disc)) / 2;
+    eigenvalues[1] = (-pol_caracteristico[0] - sqrt_newton_raphson(disc)) / 2;
+  } else if (matrix->col == 3) {
     double nuevo_polinomio[4];
     double *pol_ruffini = ruffini(pol_caracteristico, nuevo_polinomio);
-    if (pol_ruffini == NULL){
+    if (pol_ruffini == NULL) {
       printf("Fallo ruffini wachin\n");
       free(eigenvalues);
       return NULL;
-    } 
+    }
     eigenvalues[0] = pol_ruffini[3];
     double disc = (pol_ruffini[0] * pol_ruffini[0]) - 4 * pol_ruffini[1];
-    eigenvalues[1] = (-pol_ruffini[0] + sqrt_newton_raphson(disc))/2;
-    eigenvalues[2] = (-pol_ruffini[0] - sqrt_newton_raphson(disc))/2;
-  } 
-  else {
+    eigenvalues[1] = (-pol_ruffini[0] + sqrt_newton_raphson(disc)) / 2;
+    eigenvalues[2] = (-pol_ruffini[0] - sqrt_newton_raphson(disc)) / 2;
+  } else {
     printf("Aun no calculamos eigenvalores de matrices mayores a 3x3\n");
     return NULL;
   }
   return eigenvalues;
 }
-
 
 // Funciones de vectores
 Vector *init_vector(int dim) {
@@ -665,6 +663,13 @@ Vector *populate_vector(int dim, const double *data) {
   return vector;
 }
 
+void free_vector(Vector *vector) {
+  if (vector == NULL)
+    return;
+  free(vector->data);
+  free(vector);
+}
+
 Vector *cross_product_3_dim_vector(const Vector *vector1,
                                    const Vector *vector2) {
   if (vector1 == NULL || vector2 == NULL) {
@@ -718,6 +723,160 @@ Vector *matrix_vector_multiplication(const Matrix *matrix,
   return result;
 }
 
+// arma la matriz ampliada [A|b], de row x (col+1)
+static Matrix *augmented_matrix(const Matrix *matrix, const Vector *vector) {
+  Matrix *result = init_matrix(matrix->row, matrix->col + 1);
+  for (int i = 0; i < matrix->row; i++) {
+    for (int j = 0; j < matrix->col; j++)
+      result->data[i][j] = matrix->data[i][j];
+    result->data[i][matrix->col] = vector->data[i];
+  }
+  return result;
+}
+
+static int es_pivot(int col, const int *piv_col, int rango) {
+  for (int k = 0; k < rango; k++)
+    if (piv_col[k] == col)
+      return 1;
+  return 0;
+}
+
+/*
+ * Sustitucion hacia atras sobre la ampliada ya escalonada.
+ * Las variables libres se fijan de antemano (todas en 0, salvo libre_en_1),
+ * asi la misma funcion sirve para la solucion particular y los vectores de la
+ * solucion homogenea. flag usar_b = 1  -> resuelve A*x = b   (solucion
+ * particular) flag usar_b = 0  -> resuelve A*x = 0   (solucion homogenea)
+ */
+static Vector *back_substitution(const Matrix *e, const int *piv_row,
+                                 const int *piv_col, int rango, int nvars,
+                                 int usar_b, int libre_en_1) {
+  Vector *x = init_vector(nvars);
+  if (libre_en_1 >= 0) {
+    x->data[libre_en_1] = 1;
+  }
+
+  for (int k = rango - 1; k >= 0; k--) {
+    int i = piv_row[k];
+    int p = piv_col[k];
+    double suma = usar_b ? e->data[i][nvars] : 0;
+    for (int j = p + 1; j < nvars; j++) {
+      suma -= e->data[i][j] * x->data[j];
+    }
+    x->data[p] = suma / e->data[i][p];
+    if (modulo(x->data[p]) < EPS)
+      x->data[p] = 0; // evitar el menos cero
+  }
+  return x;
+}
+
+Solution *solve_equation_system(const Matrix *matrix, const Vector *vector) {
+  if (matrix == NULL || vector == NULL) {
+    printf("ERROR solve_equation_system: wachin la funcion esta recibiendo un "
+           "parametro en NULL\n");
+    return NULL;
+  }
+  if (matrix->row - vector->dim) {
+    printf("ERROR solve_equation_system: wachin tenes un error de dimension\n");
+    return NULL;
+  }
+
+  int nvars = matrix->col;
+  Matrix *amp = augmented_matrix(matrix, vector);
+  Matrix *e = gaussian_elimination_matrix(amp);
+  free_matrix(amp);
+
+  int *piv_row = calloc(e->row, sizeof(int));
+  int *piv_col = calloc(e->row, sizeof(int));
+  int rango = 0, incompatible = 0;
+
+  // busco el pivot de cada fila. Si una fila quedo 0 = c con c != 0, entonces
+  // rango(A) < rango(A|b) y el sistema es incompatible.
+  for (int i = 0; i < e->row; i++) {
+    int p = -1;
+    for (int j = 0; j < nvars; j++) {
+      if (modulo(e->data[i][j]) >= EPS) {
+        p = j;
+        break;
+      }
+    }
+    if (p >= 0) {
+      piv_row[rango] = i;
+      piv_col[rango] = p;
+      rango++;
+    } else if (modulo(e->data[i][nvars]) >= EPS) {
+      incompatible = 1;
+    }
+  }
+
+  Solution *sol = calloc(1, sizeof(Solution));
+
+  if (incompatible) {
+    sol->tipo = SIN_SOLUCION;
+  } else {
+    sol->libres = nvars - rango;
+    sol->particular =
+        back_substitution(e, piv_row, piv_col, rango, nvars, 1, -1);
+
+    if (sol->libres == 0) {
+      sol->tipo = SOLUCION_UNICA;
+    } else {
+      sol->tipo = INFINITAS_SOLUCIONES;
+      sol->generadores = init_matrix(nvars, sol->libres);
+      int k = 0;
+      for (int j = 0; j < nvars; j++) {
+        if (es_pivot(j, piv_col, rango))
+          continue;
+        // pongo la variable libre j en 1, el resto en 0, y resuelvo A*x = 0
+        Vector *g = back_substitution(e, piv_row, piv_col, rango, nvars, 0, j);
+        for (int i = 0; i < nvars; i++)
+          sol->generadores->data[i][k] = g->data[i];
+        free_vector(g);
+        k++;
+      }
+    }
+  }
+
+  free(piv_row);
+  free(piv_col);
+  free_matrix(e);
+  return sol;
+}
+
+void print_solution(const Solution *solution) {
+  if (solution == NULL) {
+    printf("ERROR print_solution: recibe NULL\n");
+    return;
+  }
+  switch (solution->tipo) {
+  case SIN_SOLUCION:
+    printf("El sistema no tiene solucion (incompatible)\n");
+    break;
+  case SOLUCION_UNICA:
+    printf("Solucion unica:\n");
+    print_vector(solution->particular);
+    break;
+  case INFINITAS_SOLUCIONES:
+    printf("Infinitas soluciones, %d parametro(s):\n", solution->libres);
+    printf("x =\n");
+    print_vector(solution->particular);
+    for (int k = 0; k < solution->libres; k++) {
+      printf("  + t%d *\n", k + 1);
+      for (int i = 0; i < solution->generadores->row; i++)
+        printf("%lf\n", solution->generadores->data[i][k]);
+    }
+    break;
+  }
+}
+
+void free_solution(Solution *solution) {
+  if (solution == NULL)
+    return;
+  free_vector(solution->particular);
+  free_matrix(solution->generadores); // ya contempla el NULL
+  free(solution);
+}
+
 // funciones auxiliares
 
 // igual que abs pero para numeros del tipo double
@@ -751,57 +910,58 @@ double sqrt_newton_raphson(double num) {
 }
 
 double eval_equation(double coef[4], double x) {
-    return ((coef[3] * x + coef[0]) * x + coef[1]) * x + coef[2];
+  return ((coef[3] * x + coef[0]) * x + coef[1]) * x + coef[2];
 }
 
 // Prueba y error como un wachin
 int root_search_for_ruffini(double coef[4], double *raiz) {
-    double epsilon = 0.000001;
-    int termino_independiente = (int)coef[2];
-    if (termino_independiente == 0) {
-        *raiz = 0;
-        return 1;
-    }
-    int limite = (int)modulo((double)termino_independiente);
-    for (int d = 1; d <= limite; d++) {
-        if (limite % d == 0) {
-            int candidatos[2] = { d, -d };
-            for (int k = 0; k < 2; k++) {
-                double val = eval_equation(coef, (double)candidatos[k]);
-                if (modulo(val) < epsilon) {
-                    *raiz = (double)candidatos[k];
-                    return 1;
-                }
-            }
+  double epsilon = 0.000001;
+  int termino_independiente = (int)coef[2];
+  if (termino_independiente == 0) {
+    *raiz = 0;
+    return 1;
+  }
+  int limite = (int)modulo((double)termino_independiente);
+  for (int d = 1; d <= limite; d++) {
+    if (limite % d == 0) {
+      int candidatos[2] = {d, -d};
+      for (int k = 0; k < 2; k++) {
+        double val = eval_equation(coef, (double)candidatos[k]);
+        if (modulo(val) < epsilon) {
+          *raiz = (double)candidatos[k];
+          return 1;
         }
+      }
     }
-    return 0;
+  }
+  return 0;
 }
 
 double *ruffini(double coef[4], double resultado[4]) {
-    double epsilon = 0.000001;
-    double raiz;
-    if (!root_search_for_ruffini(coef, &raiz)) {
-        printf("No encontré una raiz entera para hacer ruffini\n");
-        return NULL;
-    }
-    double b0 = coef[3];
-    double b1 = coef[0] + raiz * b0;
-    double b2 = coef[1] + raiz * b1;
-    double resto = coef[2] + raiz * b2;
+  double epsilon = 0.000001;
+  double raiz;
+  if (!root_search_for_ruffini(coef, &raiz)) {
+    printf("No encontré una raiz entera para hacer ruffini\n");
+    return NULL;
+  }
+  double b0 = coef[3];
+  double b1 = coef[0] + raiz * b0;
+  double b2 = coef[1] + raiz * b1;
+  double resto = coef[2] + raiz * b2;
 
-    if (modulo(resto) >= epsilon) {
-        printf("Fallo ruffini (resto = %.6f != 0)\n", resto);
-        return NULL;
-    }
-    
-    // guarda en resultado los coef del nuevo polinomio y en el ultimo elemento la raiz usada para bajarle el grado
-    // esa raiz representa un autovalor asi que no la podemos descartar
-    // el array resultado queda para un pol x³ + px² + q --> resultado = {p,q,1,raiz encontrada}
-    resultado[0] = b1;
-    resultado[1] = b2;
-    resultado[2] = b0;
-    resultado[3] = raiz;
+  if (modulo(resto) >= epsilon) {
+    printf("Fallo ruffini (resto = %.6f != 0)\n", resto);
+    return NULL;
+  }
 
-    return resultado;
+  // guarda en resultado los coef del nuevo polinomio y en el ultimo elemento la
+  // raiz usada para bajarle el grado esa raiz representa un autovalor asi que
+  // no la podemos descartar el array resultado queda para un pol x³ + px² + q
+  // --> resultado = {p,q,1,raiz encontrada}
+  resultado[0] = b1;
+  resultado[1] = b2;
+  resultado[2] = b0;
+  resultado[3] = raiz;
+
+  return resultado;
 }
