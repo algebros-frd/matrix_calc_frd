@@ -586,8 +586,13 @@ void print_vector(const Vector *vector) {
     printf("ERROR: print_vector recibe NULL\n");
     return;
   }
-  for (int i = 0; i < vector->dim; i++)
-    printf("%lf\n", vector->data[i]);
+  printf("(");
+  for (int i = 0; i < vector->dim; i++) {
+    printf("%.2lf", vector->data[i]);
+    if (i < vector->dim - 1)
+      printf(", ");
+  }
+  printf(")");
 }
 
 void set_elem_vector(int elem, double value, Vector *vector) {
@@ -851,20 +856,29 @@ void print_solution(const Solution *solution) {
   switch (solution->tipo) {
   case SIN_SOLUCION:
     printf("El sistema no tiene solucion (incompatible)\n");
+    printf("\n");
     break;
   case SOLUCION_UNICA:
     printf("Solucion unica:\n");
     print_vector(solution->particular);
+    printf("\n");
     break;
   case INFINITAS_SOLUCIONES:
     printf("Infinitas soluciones, %d parametro(s):\n", solution->libres);
-    printf("x =\n");
+
     print_vector(solution->particular);
+
     for (int k = 0; k < solution->libres; k++) {
-      printf("  + t%d *\n", k + 1);
-      for (int i = 0; i < solution->generadores->row; i++)
-        printf("%lf\n", solution->generadores->data[i][k]);
+      printf(" + t%d(", k + 1);
+      for (int i = 0; i < solution->generadores->row; i++) {
+        printf("%.2lf", solution->generadores->data[i][k]);
+        if (i < solution->generadores->row - 1)
+          printf(", ");
+      }
+      printf(")");
     }
+
+    printf("\n");
     break;
   }
 }
